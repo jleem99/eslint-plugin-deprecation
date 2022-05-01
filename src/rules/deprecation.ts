@@ -47,9 +47,11 @@ export default createRule<Options, MessageIds>({
   defaultOptions: [],
   create(context) {
     const identifierRule = createRuleForIdentifier(context);
+    const jsxAttributeRule = createRuleForJsxAttribute(context);
     return {
       Identifier: identifierRule,
       JSXIdentifier: identifierRule,
+      JSXAttribute: jsxAttributeRule,
     };
   },
 });
@@ -86,6 +88,49 @@ function createRuleForIdentifier(
           reason: deprecation.reason,
         },
       });
+    }
+  };
+}
+
+function createRuleForJsxAttribute(
+  context: TSESLint.RuleContext<'deprecated', Options>,
+): TSESLint.RuleFunction<TSESTree.JSXAttribute> {
+  return function identifierRule(id) {
+    const services = ESLintUtils.getParserServices(context);
+    const tc = services.program.getTypeChecker();
+
+    const propName = id.name.name;
+    const element = id.parent;
+    if (typeof propName !== 'string' || element?.type !== 'JSXOpeningElement')
+      return;
+
+    const component = services.esTreeNodeToTSNodeMap.get(element.name);
+    const signature = tc.getTypeAtLocation(component).getCallSignatures()[0];
+    const propSymbol = getAliasedSymbol(signature?.parameters[0]);
+    const propDecl = propSymbol?.valueDeclaration;
+    if (!propDecl) return;
+
+    const propType = getAliasedSymbol(
+      tc.getTypeAtLocation(propDecl).getProperty(propName),
+    );
+    if (!propType) return;
+
+    const deprecation = getJsDocDeprecation(propType.getJsDocTags());
+    if (deprecation) {
+      context.report({
+        node: id,
+        messageId: 'deprecated',
+        data: {
+          name: propName,
+          reason: deprecation.reason,
+        },
+      });
+    }
+
+    function getAliasedSymbol(symbol?: ts.Symbol) {
+      if (symbol && (symbol.flags & ts.SymbolFlags.Alias) !== 0)
+        return tc.getAliasedSymbol(symbol);
+      return symbol;
     }
   };
 }

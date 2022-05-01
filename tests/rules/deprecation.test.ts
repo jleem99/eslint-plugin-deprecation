@@ -181,10 +181,10 @@ ruleTester.run('deprecation', rule, {
     const obj = new Class();
     obj.method('');
   `),
-  // Method overloads in interfaces extending a class
-  // This notation used to be mentioned in the TypeScript handbook
-  // See https://www.typescriptlang.org/docs/handbook/classes.html#using-a-class-as-an-interface
-  getValidTestCase(`
+    // Method overloads in interfaces extending a class
+    // This notation used to be mentioned in the TypeScript handbook
+    // See https://www.typescriptlang.org/docs/handbook/classes.html#using-a-class-as-an-interface
+    getValidTestCase(`
     class Class {}
     interface Interface extends Class {
       method(param: string): void;
@@ -460,6 +460,23 @@ ruleTester.run('deprecation', rule, {
       const Component = () => <div/>;
 
       const component = <Component/>        // ERROR: Component
+    `),
+    // JSX Attributes
+    getInvalidTestCase(`
+      export interface Props {
+        /** @deprecated */ prop1: number;
+        /** @deprecated */ prop2: boolean;
+        prop3: string;
+      }
+      const Component = (props: Props) => <div/>;
+
+      const component = (
+        <Component
+          prop1={42}                  // ERROR: prop1
+          prop2                       // ERROR: prop2
+          prop3="foo"
+        />
+      );
     `),
     // Mark deprecation on opening tag only
     getInvalidTestCase(`
